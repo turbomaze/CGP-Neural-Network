@@ -11,10 +11,10 @@
 /**********
  * config */
 var humanFitness = true;
-var numGens = 10*1000;
+var numGens = 100*1000;
 var popSize = 1+4;
 var numIslands = 1;
-var seedBeing = new CGPBeing(4, 24, 6, 4);
+var seedBeing = new CGPBeing(4, 40, 20, 4);
 
 /*************
  * constants */
@@ -271,36 +271,59 @@ function CGPBeing(numInputs, cols, rows, numOutputs, dna) {
 	};
 
 	this.evaluate = function(inputs) {
-		var values = [];
-		for (var ai = 0; ai < this.numInputs; ai++) values.push(inputs[ai]);
+		var active = []; //nodes that affect the output
+		var numBPs = this.dna.length;
+		for (var ai = numBPs-this.numOutputs; ai < numBPs; ai++) { //all the outputs
+			active[this.dna[ai]] = true; //are necessarily active
+			markReferenced(
+				this.numInputs, this.GENE_SIZE, this.dna, this.dna[ai], active
+			); //so are all the nodes they reference, recursively
+		}
 
+		var values = [];
+		//inputs are easy so load all of them
+		for (var ai = 0; ai < this.numInputs; ai++) values.push(inputs[ai]);
+		//compute the node values, left to right
 		for (var ai = 0; ai < this.cols; ai++) { //for each column
 			for (var bi = 0; bi < this.rows; bi++) { //each row in that column
-				var idx = this.GENE_SIZE*(ai*this.rows + bi);
-				values.push(
-					cgpFunc(
+				//the gene id, not necessarily the location in the array
+				var id = ai*this.rows + bi + this.numInputs; //input based id
+				if (active[id] !== undefined) { //if this id is active
+					//then compute its output, otherwise don't bother
+					var idx = this.GENE_SIZE*(id-this.numInputs); //idx in the dna
+					//the values it references will be in the values arr already
+					values[id] = cgpFunc(
 						this.dna[idx], //function id
 						[values[this.dna[idx+1]], //inputs
 						 values[this.dna[idx+2]]], 
 						[this.dna[idx+3], //constant arguments
 						 this.dna[idx+4]] 
-					)
-				); //evaluate the node at (col, row)
+					);
+				}
 			}
 		}
 
-		var ret = [];
+		var ret = []; //the outputs
 		var numBPs = this.dna.length;
+		//gather up all the outputs
 		for (var ai = numBPs-this.numOutputs; ai < numBPs; ai++) {
-			ret.push(
-				//closestTo(
-				//	[0, 1], 
-					values[this.dna[ai]]
-				//)
-			); //gather up all the outputs
+			//ret.push(closestTo([0, 1], values[this.dna[ai]])
+			ret.push(values[this.dna[ai]]); 
 		}
 		return ret;
 	};
+
+	function markReferenced(numInputs, geneSize, dna, geneId, arr) {
+		if (geneId < numInputs) return; //don't mark anything for inputs
+		else {
+			geneId -= numInputs; //convert to the node-nought indexed basis
+			var idx = geneSize*geneId;
+			arr[dna[idx+1]] = true;
+			arr[dna[idx+2]] = true;
+			markReferenced(numInputs, geneSize, dna, dna[idx+1], arr);
+			markReferenced(numInputs, geneSize, dna, dna[idx+2], arr);
+		}
+	}
 
 	this.mutate = function() {
 		var mutatedBPs = this.dna.slice(0); //copy the original
@@ -321,9 +344,9 @@ function CGPBeing(numInputs, cols, rows, numOutputs, dna) {
 					break;
 				case 1: //connections
 				case 2: 
-					var col = (idxToMutate/5)/this.numRows;
+					var col = (((idxToMutate/this.GENE_SIZE)|0)/this.rows)|0;
 					mutatedBPs[idxToMutate] = getRandGeneId(
-						col, this.numInputs, this.numRows
+						col, this.numInputs, this.rows
 					);
 					break;
 				case 3: //constant arguments
@@ -361,7 +384,7 @@ function CGPBeing(numInputs, cols, rows, numOutputs, dna) {
 		return getRandNum(0, NUM_FUNCS); 
 	}
 
-	function getRandGeneId(col, numInputs, rows) { 
+	function getRandGeneId(col, numInputs, rows) {
 		return getRandNum(0, col*rows+numInputs);
 	}
 
