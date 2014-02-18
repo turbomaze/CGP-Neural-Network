@@ -1,17 +1,27 @@
 
-var cgpFunc = function(idx, params) {
-	var numFunctions = 10;
-	switch (idx%numFunctions) {
-		case 0: return params[0]; //first param function
-		case 1: return params[1]; //second param function
-		case 2: return params[0]+params[1]; //addition
-		case 3: return params[0]-params[1]; //subtraction
-		case 4: return params[0]*params[1]; //multiplication
-		case 5: return params[1] === 0 ? 0 : params[0]/params[1]; //safe division (/0 -> 0)
-		case 6: return Math.pow(params[0], params[1]); //exponentiation
-		case 7: return params[0]*Math.sin(params[1]); //sin
-		case 8: return params[0]*Math.cos(params[1]); //cos
-		case 9: return params[0]*Math.tan(params[1]); //tan
-		default: return 0; //zero function
+var NUM_FUNCS = 2;
+var cgpFunc = function(idx, varArgs, constArgs) {
+	function sigmoid(n) {
+		return 1/(1+Math.exp(-n));
 	}
+	function tanh(n) {
+		var eto2n = Math.exp(2*n);
+		return (eto2n-1)/(eto2n+1);
+	}
+	
+	switch (idx) {
+		case 0: //sigmoid
+			var sum = 0;
+			for (var ai = 0; ai < varArgs.length; ai++) {
+				sum += varArgs[ai]*constArgs[ai];
+			}
+			return sigmoid(sum);
+		case 1: //tanh
+			var sum = 0;
+			for (var ai = 0; ai < varArgs.length; ai++) {
+				sum += varArgs[ai]*constArgs[ai];
+			}
+			return tanh(sum);
+	}
+	return 0;
 };
